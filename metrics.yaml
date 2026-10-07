@@ -1,0 +1,64 @@
+# ============================================================
+# 指标语义层（Metrics Layer）—— 这个项目的灵魂
+# ------------------------------------------------------------
+# 学什么：
+#   观远、帆软、Power BI 这类公司，产品核心不是"帮你画图"，
+#   而是"让所有人对同一个指标的理解一致"——这就是指标语义层。
+#   比如老板说"营收"，有人觉得是含税、有人觉得是退款后，
+#   这里写死：营收 = SUM(fact_sales.revenue)，谁查都一样。
+#
+# 这份文件会被程序读出来，塞进给大模型的 Prompt 里。
+# 大模型看到这些"业务黑话怎么翻译成 SQL"，才能生成对的 SQL。
+# ============================================================
+
+# ---------- 表说明（让大模型知道每张表长啥样） ----------
+tables:
+  - name: dim_store
+    desc: "门店维度表，一家店一行"
+    columns:
+      - {name: store_id,   desc: "门店编号，如 S001"}
+      - {name: store_name, desc: "门店全名"}
+      - {name: city,       desc: "所在城市：广州/深圳/珠海等"}
+      - {name: district,   desc: "所在区域，如天河、南山"}
+
+  - name: fact_sales
+    desc: "销售事实表，每天每店每品类一行"
+    columns:
+      - {name: sale_date, desc: "销售日期，格式 YYYY-MM-DD，可用 DATE() 比较"}
+      - {name: store_id,  desc: "门店编号，关联 dim_store.store_id"}
+      - {name: category,  desc: "品类：饮料/零食/日用品/乳制品/烘焙"}
+      - {name: revenue,   desc: "当日销售额（元）"}
+      - {name: orders,    desc: "当日订单数"}
+
+# ---------- 指标字典（核心！业务黑话 → SQL 口径） ----------
+# 面试被问"什么是指标口径"，你就指着这个文件说。
+metrics:
+  - name: 营收
+    sql: "SUM(f.revenue)"
+    note: "也叫销售额，所有品类加总，不要去重"
+
+  - name: 订单数
+    sql: "SUM(f.orders)"
+    note: "注意是求和不是 count，因为已经按日聚合了"
+
+  - name: 客单价
+    sql: "ROUND(SUM(f.revenue)*1.0/NULLIF(SUM(f.orders),0), 2)"
+    note: "营收 / 订单数；NULLIF 防止除零"
+
+  - name: 客单量
+    sql: "ROUND(SUM(f.revenue)*1.0/NULLIF(SUM(f.orders),0), 0)"
+    note: "和客单价一样，看你公司怎么叫"
+
+# ---------- 常用过滤条件 ----------
+filters:
+  - 日期过滤：用 f.sale_date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+  - 门店过滤：必须 JOIN dim_store s ON f.store_id = s.store_id，再用 s.city / s.store_name 过滤
+  - 品类过滤：直接用 f.category = '...'
+
+# ---------- 写 SQL 的规矩（让大模型遵守） ----------
+rules:
+  - 事实表别名固定用 f，门店表别名固定用 s
+  - 永远不要 SELECT *，只 SELECT 用户问的指标和维度
+  - 查询必须加 LIMIT 100，防止一次拉太多
+  - 时间范围默认最近 3 个月，除非用户明确指定
+  - 排名用 ORDER BY 指标 DESC，加 LIMIT 看前几名

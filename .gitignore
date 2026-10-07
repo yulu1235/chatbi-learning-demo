@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 数据库文件（不传，自己本地跑）
+*.db
+*.sqlite
+
+# 环境变量/密钥
+.env
+*.key
+
+# IDE
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 大文件数据集（自己本地准备）
+data/*.xlsx

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>门店经营 ChatBI</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f7fa; }
+  h1 { color: #2b5797; font-size: 20px; }
+  .chat { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .q { color: #2b5797; font-weight: bold; margin-bottom: 8px; }
+  .summary { background: #eef4fb; padding: 10px; border-radius: 6px; margin: 10px 0; }
+  .sql { background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 6px; font-family: Consolas, monospace; font-size: 12px; overflow-x: auto; white-space: pre-wrap; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+  th { background: #2b5797; color: #fff; }
+  .err { color: #c00; }
+  .input-row { display: flex; gap: 8px; }
+  input { flex: 1; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; }
+  button { padding: 10px 20px; background: #2b5797; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+  .hint { color: #888; font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1>门店经营 ChatBI 演示</h1>
+  <div id="chat"></div>
+
+  <div class="input-row">
+    <input id="q" placeholder="问点什么，比如：广州哪家店营收最高？" onkeydown="if(event.key==='Enter')send()">
+    <button onclick="send()">提问</button>
+  </div>
+  <div class="hint">试试：深圳各门店最近3个月营收排名 / 饮料品类客单价多少 / 哪个城市总订单数最多</div>
+
+<script>
+async function send() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  document.getElementById('q').value = '';
+  const chat = document.getElementById('chat');
+  chat.innerHTML += `<div class="chat"><div class="q">👤 ${q}</div><div>思考中...</div></div>`;
+
+  const res = await fetch('/api/ask', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({question: q})
+  });
+  const data = await res.json();
+
+  let html = '';
+  if (data.ok) {
+    html = `<div class="summary">📊 ${data.summary}</div>
+            <div class="sql">${data.sql}</div>
+            <table><tr>${data.columns.map(c=>`<th>${c}</th>`).join('')}</tr>
+            ${data.rows.slice(0,15).map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+  } else {
+    html = `<div class="err">查询失败：${data.error}</div><div class="sql">${data.sql}</div>`;
+  }
+  chat.lastElementChild.innerHTML += html;
+  chat.scrollTop = chat.scrollHeight;
+}
+</script>
+</body>
+</html>
